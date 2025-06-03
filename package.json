@@ -6,7 +6,7 @@
     "admin": "nx run admin:dev",
     "client": "nx run client:dev",
     "employer": "nx run employer:dev",
-    "api": "nx run api:dev"
+    "api": "nx serve api"
   },
   "private": true,
   "dependencies": {
