@@ -1,0 +1,1 @@
+export { configureMiddlewares } from './appMiddleware';
