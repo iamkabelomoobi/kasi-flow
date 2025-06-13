@@ -1,4 +1,7 @@
+import http from 'http';
+
 export interface ServerOptions {
+  httpServer?: http.Server;
   port?: number;
   syncDatabase?: boolean;
   forceSync?: boolean;
