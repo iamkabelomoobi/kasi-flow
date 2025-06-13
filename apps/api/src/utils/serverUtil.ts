@@ -14,15 +14,7 @@ export const startServer = async (
   app: Application,
   options: ServerOptions = {}
 ): Promise<http.Server> => {
-  const {
-    port = env.PORT,
-    enableClusterMode = false,
-    enableHealthCheck = true,
-    rateLimitOptions = {
-      windowMs: 15 * 60 * 1000,
-      max: 100,
-    },
-  } = options;
+  const { port = env.PORT, enableClusterMode = false } = options;
 
   const isProduction = env.NODE_ENV === 'production';
   if (enableClusterMode && isProduction && cluster.isPrimary) {
@@ -49,53 +41,38 @@ export const startServer = async (
 
   try {
     await mongooseClient();
-
     logger.info('Database connection established successfully');
 
-    if (enableHealthCheck) {
+    if (options.enableHealthCheck) {
       app.get('/health', (req, res) => {
-        const healthData = {
+        res.json({
           status: 'OK',
-          services: [
-            { name: 'Database', status: 'OK', responseTime: '24ms' },
-            { name: 'API', status: 'OK', responseTime: '156ms' },
-            { name: 'Cache', status: 'WARNING', responseTime: '342ms' },
-          ],
+          graphql: '/graphql',
           uptime: process.uptime(),
-          timestamp: new Date().toISOString(),
-        };
-
-        res.json(healthData);
+        });
       });
     }
 
-    if (rateLimitOptions) {
+    if (options.rateLimitOptions) {
       const { default: rateLimit } = await import('express-rate-limit');
       app.use(
         rateLimit({
-          windowMs: rateLimitOptions.windowMs,
-          max: rateLimitOptions.max,
-          message: 'Too many requests from this IP, please try again later',
+          windowMs: options.rateLimitOptions.windowMs,
+          max: options.rateLimitOptions.max,
+          skip: (req) => req.path === '/graphql',
         })
       );
     }
 
-    const server = http.createServer(app);
+    const server = options.httpServer || http.createServer(app);
 
     return new Promise<http.Server>((resolve, reject) => {
-      server.listen(port, () => {
-        const host = `http://${ip.address()}:${port}`;
-        logger.info('Server started successfully', {
-          host,
-          platform: os.platform(),
-          pid: process.pid,
-          environment: env.NODE_ENV,
-          clusterWorker:
-            enableClusterMode && isProduction && !cluster.isPrimary,
-        });
-
+      server.listen(options.port, () => {
+        logger.info(`Server running on port ${options.port}`);
+        logger.info(
+          `GraphQL endpoint: http://${ip.address()}:${options.port}/graphql`
+        );
         setupGracefulShutdown(server);
-
         resolve(server);
       });
 
